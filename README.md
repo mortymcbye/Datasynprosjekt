@@ -8,6 +8,7 @@ Project notebook: https://github.com/roboflow/notebooks/blob/main/notebooks/how-
 **Resources git**<br>
 Roboflow inference github: https://github.com/roboflow/inference/tree/main/examples<br>
 YOLOv5 github: https://github.com/ultralytics/yolov5?tab=readme-ov-file<br>
+YOLOv3 github: https://github.com/ultralytics/yolov3<br>
 Bytetrack github: https://github.com/ifzhang/ByteTrack?ref=blog.roboflow.com
 
 **YOLO links**<br>
