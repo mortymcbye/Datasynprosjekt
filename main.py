@@ -1,5 +1,12 @@
+import detection
+import tracking
 
-# The overall steps are as follows:
+# PLAN:
+# 1. Fix fargene til boksene slik at de stemmer med info gitt av final_detections
+# 2. Få boxene til å faktisk tracke / følge sine respektive spillere
+# 3. Utvid til egne bokser for dommere (det kan vell gjøres ved å vite at de alltid har samme farger som hverandre og er to stk)
+# 4. Fiks så keeperne assosieres med riktige lag (hvordan though - må se på laget som flest har rygg mot keeper i.e forvsarer målet?)
+
 """
     1. Detection: Run an object detection model on each frame of the video to detect players. This will give you a list of bounding boxes for each frame.
     2. Feature Extraction: For every detected player (bounding box) in each frame, you extract a feature vector using a neural network. This vector represents the appearance of the player and is used to distinguish between different players.
@@ -17,11 +24,17 @@
 # Current: Complete the feature_extraction.py:
 
 if __name__ == '__main__':
-    # Ideally we should be able to run the entire program ery seperated like so..
 
-    """
-    detection.main()
-    feature_extraction.main()
-    tracking.main()
-    
+    # Detection part:
+    input_video_location = 'soccer.mp4'
+    output_initial_frame_location = 'The_first_frame'                      # This is where the first frame will be saved
+    raw_detections, annotated_image, final_detections = detection.full_detection(input_video_location, output_initial_frame_location) 
+
+    # Feature extraction: (Can be added if want to, if needs extra help to track by seperating between features of players):
+    # Does not seem neccesary just yet.
+
+    # Tracking part:
+    initial_frame_path = output_initial_frame_location
+    print(final_detections)
+    tracking.full_tracking(initial_frame_path, input_video_location, final_detections)
     """
