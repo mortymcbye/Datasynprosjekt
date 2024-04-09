@@ -1,105 +1,63 @@
-
-
-# Should first make it work on trakcing between two spesific frames that are both annoted by detection.py and feature extraccted.
-
 import numpy as np
-import time
-import os
-import cv2 # import cv2 to helo load our image
+import cv2
 
-from deep_sort import preprocessing, nn_matching
-from deep_sort.detection import Detection
-from deep_sort.tracker import Tracker
-from tools import generate_detections as gdet
+def initialize_multi_tracker():
+    return cv2.legacy.MultiTracker_create()
 
+def add_objects_to_tracker(multi_tracker, initial_frame, detections):
+    for box in detections.xyxy:
+        # Convert from (xmin, ymin, xmax, ymax) to (x, y, w, h) if necessary
+        xmin, ymin, xmax, ymax = box
+        w, h = xmax - xmin, ymax - ymin
+        bbox = (int(xmin), int(ymin), int(w), int(h))
+        tracker = cv2.legacy.TrackerCSRT_create()
+        multi_tracker.add(tracker, initial_frame, bbox)
 
-def split_video_into_frames():
-    """Function to extract frames from input video file
-    and save them as separate frames in an output directory."""
-    # Ensure the output directory exists within the current directory
-    os.makedirs('frames_representing_entire_video', exist_ok=True)
-    # Log the time
-    time_start = time.time()
-    # Start capturing the feed
-    cap = cv2.VideoCapture('mall.mp4')
-    # Find the number of frames
-    video_length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print("Number of frames:", video_length)
-    count = 0
-    print("Converting video...\n")
-    # Start converting the video
+def track_objects(input_video_location, multi_tracker, labels):
+    cap = cv2.VideoCapture(input_video_location)
     while cap.isOpened():
-        # Extract the frame
         ret, frame = cap.read()
         if not ret:
-            break  # Exit the loop if no frame is returned
-        # Write the results back to output location
-        frame_filename = os.path.join('frames_representing_entire_video', f"{count+1:05d}.jpg")
-        cv2.imwrite(frame_filename, frame)
-        count += 1
-    # Release the feed
+            break
+
+        scaling_factor = 1.3
+        display_frame = cv2.resize(frame, (0, 0), fx=scaling_factor, fy=scaling_factor)
+
+        success, boxes = multi_tracker.update(frame)
+        for i, box in enumerate(boxes):
+            # Use the class_id or class_name to set the color
+            label = labels[i]  # Assuming labels are extracted beforehand
+            if label == '1':
+                color = (0, 255, 0)  # Green for label '1'
+            elif label == '2':
+                color = (0, 0, 255)  # Blue for label '2'
+            else:
+                color = (255, 0, 0)  # Default to Red for other labels
+
+            p1 = (int(box[0] * scaling_factor), int(box[1] * scaling_factor))
+            p2 = (int((box[0] + box[2]) * scaling_factor), int((box[1] + box[3]) * scaling_factor))
+            cv2.rectangle(display_frame, p1, p2, color, 2, 1)
+
+        cv2.imshow('Tracking', display_frame)
+        display_delay = 500
+        if cv2.waitKey(display_delay) & 0xFF == ord('q'):
+            break
+
     cap.release()
-    # Print stats
-    time_end = time.time()
-    print(f"Done extracting frames.\n{count} frames extracted")
+    cv2.destroyAllWindows()
 
+def full_tracking(initial_frame_path, input_video_location, detections):
+    initial_frame = cv2.imread(initial_frame_path)
+    # Extract labels (e.g., class names) from detections for use in coloring
+    labels = detections.data['class_name']  # Adjust based on your class naming
 
-def track_obj_after_initial_frame():
-    print("Hei")
+    multi_tracker = initialize_multi_tracker()
+    add_objects_to_tracker(multi_tracker, initial_frame, detections)
 
-
+    track_objects(input_video_location, multi_tracker, labels)
 
 if __name__ == '__main__':
-
-    print("HEI")
-    # Step 1 - 'split_video_into_frames' function:
-        # Input: mp4 video
-        # Output: Location of all frames
-        
-        # split_video_into_frames()
-
-    # Step 2 - Initialize deepsort:
-    max_cosine_distance = 0.3
-    nn_budget = None
-    nms_max_overlap = 1.0
-
-    model_filename = 'model_data/mars-small128.pb'  # Path to the feature extractor model
-    encoder = gdet.create_box_encoder(model_filename, batch_size=1)
-
-    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
-    tracker = Tracker(metric)
-
-    total_number_of_frames = 10 # Må i realiteten hentes/beregnes etter vi faktisk har splitta inn i frames
-    for each_frame in range (total_number_of_frames):
-        # Generate detections for each detection in the format required by Deep SORT
-        features = encoder(each_frame, boxes)
-        detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxes, features)]
-
-        # Run non-maxima suppression to remove detections that overlap too much
-        boxes = np.array([d.detection for d in detections])
-        scores = np.array([d.confidence for d in detections])
-        indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
-        detections = [detections[i] for i in indices]
-
-        # Call the tracker
-        tracker.predict()
-        tracker.update(detections)
-
-
-
-    # Step 2 - 'track_obj_after_initial_frame' function:
-        # Input: Sequence of frames (output of split_video_into_frames), annotaed initial frame (output from detect_obj_initial_frame)
-        # Output: Annoted series of frames (i.e takes annoted first frame, and un-annoted rest of frames and uses first to annote rest)
-        # detect_obj_initial_frame()
-
-        # Tips: For tracking objects across frames use a tracking algorithm such as SORT or DeepSort
-    
-    # Step 3 - 're_assemble_video' function:
-        # Input: Sequence of frames (output of track_obj_after_initial_frame)
-        # Output: (Annotede) mp4 video
-    
-    # Step 4 - 'evaluate_tracking' function:
-        # Input: Annoted mp4 video, original (un-annoted) mp4 video
-        # Output: Accuracy value, precision value
-
-        # Tips: Use MOTA for accuracy and MOTP for precision
+    initial_frame_path = 'first_frame.jpg'
+    input_video_location = 'soccer.mp4'
+    # Assume 'detections' is already defined as per your structure
+    # full_tracking(initial_frame_path, input_video_location, detections)
