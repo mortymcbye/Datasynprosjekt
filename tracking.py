@@ -1,63 +1,94 @@
-import numpy as np
+
+
 import cv2
+import numpy as np
 
-def initialize_multi_tracker():
-    return cv2.legacy.MultiTracker_create()
+def convert_bboxes(bboxes):
+    # Convert from [[100., 50., 40., 70.][150., 55., 40., 70.]]
+    converted = []
+    for bbox in bboxes:
+        x1, y1, x2, y2 = bbox
+        w = x2 - x1
+        h = y2 - y1
+        converted.append((int(x1), int(y1), int(w), int(h)))
+    return converted
 
-def add_objects_to_tracker(multi_tracker, initial_frame, detections):
-    for box in detections.xyxy:
-        # Convert from (xmin, ymin, xmax, ymax) to (x, y, w, h) if necessary
-        xmin, ymin, xmax, ymax = box
-        w, h = xmax - xmin, ymax - ymin
-        bbox = (int(xmin), int(ymin), int(w), int(h))
-        tracker = cv2.legacy.TrackerCSRT_create()
-        multi_tracker.add(tracker, initial_frame, bbox)
+def full_tracking(input_video_location, final_detections):
+    bboxes = final_detections.xyxy
+    colors = final_detections.class_id
+    player_ids = final_detections.data["class_name"]
 
-def track_objects(input_video_location, multi_tracker, labels):
+    # Load the video
     cap = cv2.VideoCapture(input_video_location)
-    while cap.isOpened():
+    if not cap.isOpened():
+        print("Error: Could not open video.")
+        return
+
+    # Convert bounding boxes and initialize trackers
+    bboxes = convert_bboxes(bboxes)
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Cannot read video file.")
+        return
+
+    trackers = []
+    for bbox in bboxes:
+        tracker = cv2.TrackerCSRT_create()
+        tracker.init(frame, bbox)
+        trackers.append(tracker)
+
+    while True:
+        # Read a new frame
         ret, frame = cap.read()
         if not ret:
             break
 
-        scaling_factor = 1.3
-        display_frame = cv2.resize(frame, (0, 0), fx=scaling_factor, fy=scaling_factor)
+        # Update and draw bounding boxes for each tracker
+        for tracker, color, player_id in zip(trackers, colors, player_ids):
+            success, box = tracker.update(frame)
 
-        success, boxes = multi_tracker.update(frame)
-        for i, box in enumerate(boxes):
-            # Use the class_id or class_name to set the color
-            label = labels[i]  # Assuming labels are extracted beforehand
-            if label == '1':
-                color = (0, 255, 0)  # Green for label '1'
-            elif label == '2':
-                color = (0, 0, 255)  # Blue for label '2'
+            # For correct colors (seperating between teams)
+            if color == 1: 
+                color = (0, 0, 255)
+            elif color == 2: # If you do not use 'elif' here, the 'else' statement WILL always be entered if not 'if' entered. Effectively overriding the 'elif'
+                color = (255, 255, 255)
+            else: # Color for referees
+                color = (0, 0, 0)
+
+            if success:
+                p1 = (int(box[0]), int(box[1]))
+                p2 = (int(box[0] + box[2]), int(box[1] + box[3]))
+                cv2.rectangle(frame, p1, p2, color, 2, 1)
+                cv2.putText(frame, player_id, (p1[0], p1[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             else:
-                color = (255, 0, 0)  # Default to Red for other labels
+                # Handling tracking failure, if needed
+                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
 
-            p1 = (int(box[0] * scaling_factor), int(box[1] * scaling_factor))
-            p2 = (int((box[0] + box[2]) * scaling_factor), int((box[1] + box[3]) * scaling_factor))
-            cv2.rectangle(display_frame, p1, p2, color, 2, 1)
+        # Display result
+        cv2.imshow("Tracking", frame)
 
-        cv2.imshow('Tracking', display_frame)
-        display_delay = 500
-        if cv2.waitKey(display_delay) & 0xFF == ord('q'):
-            break
+        # Exit if ESC pressed
+        k = cv2.waitKey(1) & 0xff
+        if k == 27 : break
 
     cap.release()
     cv2.destroyAllWindows()
 
-def full_tracking(initial_frame_path, input_video_location, detections):
-    initial_frame = cv2.imread(initial_frame_path)
-    # Extract labels (e.g., class names) from detections for use in coloring
-    labels = detections.data['class_name']  # Adjust based on your class naming
 
-    multi_tracker = initialize_multi_tracker()
-    add_objects_to_tracker(multi_tracker, initial_frame, detections)
-
-    track_objects(input_video_location, multi_tracker, labels)
 
 if __name__ == '__main__':
-    initial_frame_path = 'first_frame.jpg'
-    input_video_location = 'soccer.mp4'
-    # Assume 'detections' is already defined as per your structure
-    # full_tracking(initial_frame_path, input_video_location, detections)
+    # Example usage
+    """
+    video_path = 'soccer.mp4'
+
+    Detections(xyxy=array(
+       [[ 440.,  531.,  471.,  596.],
+       [ 478.,  168.,  491.,  205.]]), mask=None, confidence=array([0.8881253 , 0.87274611, 0.87224352, 0.86617452, 0.85796571,
+       0.85334438, 0.84024572, 0.83696854, 0.8246336 , 0.82408929,
+       0.82127774, 0.81580412, 0.81312847, 0.8106792 , 0.81011415,
+       0.79962969, 0.7921868 , 0.79076731, 0.77907324, 0.77451396,
+       0.64464688]), class_id=array([2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 1, 2, 1, 1, 2, 2, 1, 1, 2, 1, 1]), tracker_id=None, data={'class_name': array(['1', '2', '3', '1', '2', '3', '4', '5', '4', '5', '6', '6', '7',
+       '8', '7', '8', '9', '10', '9', '11', '12'], dtype='<U7')})
+
+    full_tracking(input_video_location, final_detections)
+    """
