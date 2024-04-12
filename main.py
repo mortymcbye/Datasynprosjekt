@@ -1,3 +1,4 @@
+
 import detection
 import tracking
 
@@ -24,7 +25,7 @@ import tracking
 # Current: Complete the feature_extraction.py:
 
 if __name__ == '__main__':
-
+    
     # Detection part:
     input_video_location = 'soccer.mp4'
     output_initial_frame_location = 'The_first_frame'                      # This is where the first frame will be saved
@@ -34,7 +35,4 @@ if __name__ == '__main__':
     # Does not seem neccesary just yet.
 
     # Tracking part:
-    initial_frame_path = output_initial_frame_location
-    print(final_detections)
-    tracking.full_tracking(initial_frame_path, input_video_location, final_detections)
-    """
+    tracking.full_tracking(input_video_location, final_detections)
