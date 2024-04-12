@@ -233,7 +233,7 @@ def full_detection(input_video_location, output_initial_frame_location):
         final_detections, annotated_image = add_additional_detection_stats(raw_detections, annotated_image, team_assignment_array)
         show_annotated_image(final_detections, annotated_image) # Just for troubleshooting. Don't really need to display image this early
         
-        print(final_detections)
+        # print(final_detections)
         return raw_detections, annotated_image, final_detections
 
 
@@ -244,5 +244,6 @@ if __name__ == '__main__':
     output_initial_frame_location = 'The_first_frame'                      # This is where the first frame will be saved
     raw_detections, annotated_image, final_detections = full_detection(input_video_location, output_initial_frame_location)   
 
-    print(final_detections)
+    print(final_detections.xyxy[0])
+
 
