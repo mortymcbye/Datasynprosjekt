@@ -1,21 +1,22 @@
-
 import detection
 import tracking
 import feature_extraction
 
+import keypoint_detection
+import analysis
+
 import cv2
 
-# PLAN:
-# 1. Feature extractor && Tracking: Fiks at når spiller utenfor skjerm, forsvinner tracking box - IKKE plasseres randomly på publikum
-#   - Gjøres ved å først feature extracte, deretter bruke dette til å hjelpe avgjøre hvem som forsvinner ut og kommer inn igjen så samme spiller ivaretar samme nummer gjennom HELE klippet
-""" Disse to punktene kan dog fikses direkte med en bedre trent modell slik at final_detections direkte får riktig info i player_id osv, det gjør det super enkelt
-    å integrere med min alt eksisterende tracking funksjon"""
-# 2. Detections: Utvid til å separere mellom to lag, linjedommere og hoveddommer.
-#   - Ved egne bokser for dommere. Gjør ved sammenligne innad i laget og splitte ut de som er mest forskjellig?)
-# 3. Detections: Fiks så keeperne assosieres med riktige lag.
-#   - Hvordan though - må se på laget som flest har rygg mot keeper i.e forvsarer målet?
 
-
+"""
+PLAN:
+1. Fix del 2:
+    - Finjuster keypoint_extraction så den suksessfullt farger ut spillernes bokser helt
+    - Fullfør translation til real_world via keypoints. Hvordan, for trenger detected keypoints, ekte keypoints men også link mellom hvilke detected keypoints vi har funnet
+2. Tweek del 1:
+    - Påse at tracking er helt korrekt, at ikke spillere bytter ID osv, selv ved exit og enter of field/frame
+    - Legg inn feature extraction dersom behov for enklere/bedre tracking!
+"""
 
 if __name__ == '__main__':
     
@@ -32,3 +33,18 @@ if __name__ == '__main__':
 
     # Tracking part:
     tracking.full_tracking(input_video_location, final_detections)
+
+
+    ########### Part two  ###########
+
+    # Keypoint detection:
+        # Return string of positions of ALL detected objects
+        # Viktig at deres ID ivaretas gjennom hele sekvens her kan feature extraction bli nødvendig
+    real_world_positions, timestamps_of_frames = keypoint_detection.full_keypoint_detection(output_initial_frame_location, final_detections) 
+
+    # Analysis:
+        # Ta inn disse to vektorene og bruk enkel matte kombinert med deres ID for å beregne deres stats
+        # Display ved grafer tenker jeg kan være greit. Én graf per stat med alle 22 spillere vist gjennom de 1 minutter med video
+    velocities, accelerations = analysis.calculate_velocity_and_acceleration(real_world_positions, timestamps_of_frames)
+
+
