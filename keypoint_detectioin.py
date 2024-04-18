@@ -126,48 +126,47 @@ def identify_keypoints(keypoints_coordinates):
 
 
 def translate_into_real_world(final_detections, timestamps_of_frames, keypoints_coordinates, real_world_keypoints_coordinates):
-
-    # Initialize an empty array to store the final detections in real-world coordinates
     final_detections_in_real_world = []
 
-    # Loop through each detected player position
+    # Calculate keypoints scale once if all detections share the same keypoints
+    keypoints_scale = {}
+    for keypoint_name, keypoint_real_coordinates in real_world_keypoints_coordinates.items():
+        if keypoint_name in keypoints_coordinates:
+            keypoint_image_coordinates = keypoints_coordinates[keypoint_name]
+            scale_x = keypoint_real_coordinates[0] / keypoint_image_coordinates[0]
+            scale_y = keypoint_real_coordinates[1] / keypoint_image_coordinates[1]
+            keypoints_scale[keypoint_name] = (scale_x, scale_y)
+        else:
+            print(f"Keypoint '{keypoint_name}' not found in frame keypoints.")
+
     for detection in final_detections:
-        # Get the coordinates of the detected player position
         x_min, y_min, x_max, y_max = detection
+        player_center = ((x_max - x_min) / 2 + x_min, (y_max - y_min) / 2 + y_min)
 
-        # Calculate the center point of the detected player position
-        player_center = ((x_max - x_min) // 2 + x_min, (y_max - y_min) // 2 + y_min)
+        real_world_position = None
 
-        # Translate the detected player position into real-world coordinates
-        real_world_position = (0, 0)  # Placeholder, replace with actual calculation
-        for keypoint_name, keypoint_real_coordinates in keypoints_coordinates.items():
-            if keypoint_name in real_world_keypoints_coordinates:
+        for keypoint_name, keypoint_real_coordinates in real_world_keypoints_coordinates.items():
+            if keypoint_name in keypoints_coordinates:
                 keypoint_image_coordinates = keypoints_coordinates[keypoint_name]
-                keypoint_real_world_coordinates = real_world_keypoints_coordinates[keypoint_name]
 
-                # Calculate the distance between the detected player position and the keypoint in the image
-                distance_x = player_center[0] - keypoint_image_coordinates[0]
-                distance_y = player_center[1] - keypoint_image_coordinates[1]
-
-                # Scale the distances to match the real-world scale
-                scale_x = keypoint_real_world_coordinates[0] / keypoint_image_coordinates[0]
-                scale_y = keypoint_real_world_coordinates[1] / keypoint_image_coordinates[1]
-
-                # Apply scaling to calculate real-world position
-                real_world_x = keypoint_real_world_coordinates[0] + distance_x * scale_x
-                real_world_y = keypoint_real_world_coordinates[1] + distance_y * scale_y
-
-                real_world_position = (real_world_x, real_world_y)
-                break  # Exit loop once real-world position is found
-
+                if keypoint_name in keypoints_scale:
+                    scale_x, scale_y = keypoints_scale[keypoint_name]
+                    distance_x = player_center[0] - keypoint_image_coordinates[0]
+                    distance_y = player_center[1] - keypoint_image_coordinates[1]
+                    real_world_x = keypoint_real_coordinates[0] + distance_x * scale_x
+                    real_world_y = keypoint_real_coordinates[1] + distance_y * scale_y
+                    real_world_position = (real_world_x, real_world_y)
+                    break
+                else:
+                    print(f"Scaling information for keypoint '{keypoint_name}' not found.")
             else:
-                # Handle cases where the keypoint is not found in the mapping
-                print(f"Keypoint '{keypoint_name}' not found in mapping.")
+                print(f"Keypoint '{keypoint_name}' not found in frame keypoints.")
 
-        # Add the translated real-world position to the array
-        final_detections_in_real_world.append(real_world_position)
+        if real_world_position:
+            final_detections_in_real_world.append(real_world_position)
 
     return final_detections_in_real_world, timestamps_of_frames
+
 
 
 
