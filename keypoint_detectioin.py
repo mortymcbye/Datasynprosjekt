@@ -13,6 +13,9 @@ import cv2
 import numpy as np
 
 
+######## Preparing for easier keypoint detection ########
+
+
 # Save time and effort by identifying the field anc creating a mask that covers it:
 def create_field_mask(image):
     # Convert the image to the HSV color space
@@ -53,32 +56,122 @@ def disregard_players(image, final_detections):
     filtered_gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return filtered_gray_image
 
+
+######## Detect keypoints ########    
+
+
+import cv2
+import numpy as np
+
+def detect_field_keypoints(image):
+    # Detect corners using the Harris corner detection algorithm
+    dst = cv2.cornerHarris(image, 2, 3, 0.04)
+
+    # Dilate the corners to make them more prominent
+    dst = cv2.dilate(dst, None)
+
+    # Threshold the image to highlight the corners
+    keypoints = np.argwhere(dst > 0.01 * dst.max())
+
+    # Convert keypoints to (x, y) coordinates
+    keypoints_coordinates = [(point[1], point[0]) for point in keypoints]
+
+    # Draw keypoints on the original image
+    keypoints_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    for x, y in keypoints_coordinates:
+        cv2.circle(keypoints_image, (x, y), 3, (0, 0, 255), -1)  # Draw a red circle
+
+    return keypoints_coordinates, keypoints_image
+
+
+# We ideally want to use a pre-trained model for this identifying:
+def identify_keypoints(keypoints_coordinates):
+    # Pre-trained model identification part:
+    real_world_coordinates = [] # Shall hold the real_world coordinates that are returned in the end
+
+    # Information on real_world metrics of a standard soccer field:
+    field_width, field_height = 105.0, 68.0
+
+    # Corners of the Field
+    top_left_corner = (0, 0)
+    top_right_corner = (field_width, 0)
+    bottom_left_corner = (0, field_height)
+    bottom_right_corner = (field_width, field_height)
     
-# Using Shi-Tomasi corner detection:
-def detect_keypoints(gray_image, original_image):
-    # Detect corners
-    corners = cv2.goodFeaturesToTrack(gray_image, maxCorners=35, qualityLevel=0.01, minDistance=10)
-    if corners is not None:
-        corners = np.int0(corners)
-        # Draw corners on the original colored image in red
-        for i in corners:
-            x, y = i.ravel()
-            cv2.circle(original_image, (x, y), 5, (255, 0, 0), -1)  # Blue color ans size (5) for the keypoint-dots
+    # Center Dot
+    center_dot = (field_width / 2, field_height / 2)
     
-    # Display the original image with keypoints in red
-    cv2.imshow('Keypoints', original_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # Penalty Spots (Assuming 10.97 meters from the goal line)
+    penalty_spot_left = (field_width / 2 - 10.97, 0)
+    penalty_spot_right = (field_width / 2 + 10.97, 0)
+    
+    # Midfield Circle (Assuming radius of 9.15 meters)
+    midfield_circle_center = center_dot
+    midfield_circle_radius = 9.15
+    
+    # Center Line
+    center_line_start = (field_width / 2, 0)
+    center_line_end = (field_width / 2, field_height)
+    
+    # Corner Flags (Assuming corner flag positions are at the corners themselves)
+    top_left_corner_flag = top_left_corner
+    top_right_corner_flag = top_right_corner
+    bottom_left_corner_flag = bottom_left_corner
+    bottom_right_corner_flag = bottom_right_corner
 
-    return corners
+    return real_world_coordinates # This should return the detected keypoint's real_life corespondants
 
 
-def translate_into_real_world(keypoints):
-    # Logic to translate the keypoints into real-world coordinates:
-        # I really dont know how to do this yet..
+######## Translate keypoints into real_world ########
 
-    real_world_positions, timestamps_of_frames = 1  # Placeholder values
-    return real_world_positions, timestamps_of_frames
+
+def translate_into_real_world(final_detections, timestamps_of_frames, keypoints_coordinates, real_world_keypoints_coordinates):
+
+    # Initialize an empty array to store the final detections in real-world coordinates
+    final_detections_in_real_world = []
+
+    # Loop through each detected player position
+    for detection in final_detections:
+        # Get the coordinates of the detected player position
+        x_min, y_min, x_max, y_max = detection
+
+        # Calculate the center point of the detected player position
+        player_center = ((x_max - x_min) // 2 + x_min, (y_max - y_min) // 2 + y_min)
+
+        # Translate the detected player position into real-world coordinates
+        real_world_position = (0, 0)  # Placeholder, replace with actual calculation
+        for keypoint_name, keypoint_real_coordinates in keypoints_coordinates.items():
+            if keypoint_name in real_world_keypoints_coordinates:
+                keypoint_image_coordinates = keypoints_coordinates[keypoint_name]
+                keypoint_real_world_coordinates = real_world_keypoints_coordinates[keypoint_name]
+
+                # Calculate the distance between the detected player position and the keypoint in the image
+                distance_x = player_center[0] - keypoint_image_coordinates[0]
+                distance_y = player_center[1] - keypoint_image_coordinates[1]
+
+                # Scale the distances to match the real-world scale
+                scale_x = keypoint_real_world_coordinates[0] / keypoint_image_coordinates[0]
+                scale_y = keypoint_real_world_coordinates[1] / keypoint_image_coordinates[1]
+
+                # Apply scaling to calculate real-world position
+                real_world_x = keypoint_real_world_coordinates[0] + distance_x * scale_x
+                real_world_y = keypoint_real_world_coordinates[1] + distance_y * scale_y
+
+                real_world_position = (real_world_x, real_world_y)
+                break  # Exit loop once real-world position is found
+
+            else:
+                # Handle cases where the keypoint is not found in the mapping
+                print(f"Keypoint '{keypoint_name}' not found in mapping.")
+
+        # Add the translated real-world position to the array
+        final_detections_in_real_world.append(real_world_position)
+
+    return final_detections_in_real_world, timestamps_of_frames
+
+
+
+######## Komprimert full-function ########
 
 
 def full_keypoint_detection(original_image, final_detections):
@@ -91,24 +184,31 @@ def full_keypoint_detection(original_image, final_detections):
     # Now disregard the players
     filtered_gray_image = disregard_players(original_image.copy(), final_detections)
 
-    # Detect keypoints on the grayscale image but draw them on the original image
-    keypoints = detect_keypoints(filtered_gray_image, original_image)
+    # Detect keypoints on the grayscale:
+    keypoints_coordinates, keypoints_image = detect_field_keypoints(filtered_gray_image)
+    
+    # Display the original image and keypoints image - only for debugging purposes:
+    cv2.imshow('Key Points Detected', keypoints_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    # Translate keypoints into real-world positions
-    real_world_positions, timestamps_of_frames = translate_into_real_world(keypoints)
+    # identify which keypoints we have found and return their corrosponding real_world_coordinates:
+    """ As for now - this does not actually identify as we want to use a pre-trained model for this """
+    real_world_keypoints_coordinates = identify_keypoints(keypoints_coordinates)
 
-    return real_world_positions, timestamps_of_frames
+    # Use info on real_world and detected keypoint coordinates to translate final_detections into real_world:
+    real_world_final_detections, timestamps_of_frames = translate_into_real_world(final_detections, timestamps_of_frames, keypoints_coordinates, real_world_keypoints_coordinates)
+
+    return real_world_final_detections, timestamps_of_frames
+
+        
+    
 
 
 
 if __name__ == '__main__':
-
-    original_image_path = 'annoted_image.png'
+    original_image_path = 'soccer_field.png'
     original_image = cv2.imread(original_image_path)
-
-    # Check if image is read correctly
-    if original_image is None:
-        raise FileNotFoundError(f"File {original_image_path} not found.")
 
     final_detections = np.array([
         [440, 531, 471, 596],
@@ -134,4 +234,10 @@ if __name__ == '__main__':
         [478, 168, 491, 205]
     ])
 
-    real_world_positions, timestamps_of_frames = full_keypoint_detection(original_image, final_detections)
+    # Run the full function for testing:
+    real_world_final_detections, timestamps_of_frames = full_keypoint_detection(original_image, final_detections)
+
+    # Print the results:
+    print("Real-world positions:")
+    for pos in real_world_final_detections:
+        print(pos)
