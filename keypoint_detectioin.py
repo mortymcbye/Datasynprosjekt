@@ -85,6 +85,7 @@ def detect_field_keypoints(image):
 
 
 # We ideally want to use a pre-trained model for this identifying:
+# Seems like functionality is missing?
 def identify_keypoints(keypoints_coordinates):
     # Pre-trained model identification part:
     real_world_coordinates = [] # Shall hold the real_world coordinates that are returned in the end
@@ -126,6 +127,7 @@ def identify_keypoints(keypoints_coordinates):
 
 
 def translate_into_real_world(final_detections, timestamps_of_frames, keypoints_coordinates, real_world_keypoints_coordinates):
+
     final_detections_in_real_world = []
 
     # Calculate keypoints scale once if all detections share the same keypoints
@@ -193,6 +195,7 @@ def full_keypoint_detection(original_image, final_detections):
 
     # identify which keypoints we have found and return their corrosponding real_world_coordinates:
     """ As for now - this does not actually identify as we want to use a pre-trained model for this """
+    #keypoints_coordinates should be equal to the data from our model
     real_world_keypoints_coordinates = identify_keypoints(keypoints_coordinates)
 
     # Use info on real_world and detected keypoint coordinates to translate final_detections into real_world:
@@ -206,7 +209,7 @@ def full_keypoint_detection(original_image, final_detections):
 
 
 if __name__ == '__main__':
-    original_image_path = 'soccer_field.png'
+    original_image_path = 'Images/test.jpg'
     original_image = cv2.imread(original_image_path)
 
     final_detections = np.array([
