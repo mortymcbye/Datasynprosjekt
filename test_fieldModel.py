@@ -23,7 +23,11 @@ class Yolov4:
                         'penalty_right_top',
                         'penalty_right_bot',
                         'penalty_left_top',
-                        'penalty_left_bot']
+                        'penalty_left_bot',
+                        'penalty_circ_left_bot',
+                        'penalty_circ_left_top',
+                        'penalty_circ_right_bot',
+                        'penalty_circ_right_top']
         self.Neural_Network = cv2.dnn.readNetFromDarknet(self.cfg, self.weights)
         self.outputs = self.Neural_Network.getUnconnectedOutLayersNames()
         self.COLORS = np.random.randint(0, 255, size=(len(self.classes), 3), dtype="uint8")
@@ -50,6 +54,7 @@ class Yolov4:
                         ids.append(class_)
                         confidence_score.append(float(confidence_))
             final_box = cv2.dnn.NMSBoxes(cordinates, confidence_score, Threshold, .6)
+
             #Prints visible and non visible points
             for i in ids:
                 visible.append(self.classes[i])
@@ -99,11 +104,11 @@ class Yolov4:
 
 if __name__ == "__main__":
     parse=argparse.ArgumentParser()
-    parse.add_argument('--weights', type=str, default='yolov4.weights', help='weights path')
-    parse.add_argument('--cfg', type=str, default='yolov4.cfg', help='cfg path')
-    parse.add_argument('--image', type=str, default='', help='image path')
-    parse.add_argument('--video', type=str, default='', help='video path')
-    parse.add_argument('--img_size', type=int, default='', help='size of w*h')
+    parse.add_argument('--weights', type=str, default='football_3.weights', help='weights path')
+    parse.add_argument('--cfg', type=str, default='football_3.cfg', help='cfg path')
+    parse.add_argument('--image', type=str, default='Images/test.jpg', help='image path')
+    parse.add_argument('--video', type=str, default='Images/video.mp4', help='video path')
+    parse.add_argument('--img_size', type=int, default='320', help='size of w*h')
     opt = parse.parse_args()
     obj = Yolov4()  # constructor called and executed
 
@@ -131,8 +136,12 @@ if __name__ == "__main__":
                 res, frame = cap.read()
                 if res == True:
                     outcome = obj.Inference(image=frame, original_width=width, original_height=height)
-                    cv2.imshow("demo", outcome)
-                    output.write(outcome)
+                    cv2.imshow('demo', frame)
+                    #Saving results in video demo.avi
+                    if outcome is None:
+                        output.write(frame)
+                    else:
+                        output.write(outcome)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 else:
