@@ -36,7 +36,6 @@ def assign_teams_by_dominant_color(dominant_colors):
     
     return team_assignment_array
 
-#WHICH IS USED?
 def separate_teams_by_dominant_color(image, detections):
     boxes = detections.xyxy  # Assuming this is a numpy array of shape (N, 4)
     dominant_colors = extract_dominant_color(image, boxes, n_colors=1)
@@ -82,7 +81,6 @@ def detect_obj_initial_frame(initial_frame_path):
 
     return raw_detections, image
 
-#WHICH IS USED?
 def seperate_teams_by_color(image, detections):
     """
     Calculate the average RGB color inside each detection box and categorize them into two teams.
