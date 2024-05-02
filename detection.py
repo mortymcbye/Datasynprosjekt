@@ -1,22 +1,15 @@
-
-
-# For split_video_into_frames
 import time
 import os
-
-# For detect_obj_initial_frame:
-from inference import get_model # import a utility function for loading Roboflow models
-import supervision as sv # import supervision to visualize our results
-import cv2 # import cv2 to load our image
-
-# For identifying different teams:
+from inference import get_model # Utility function for loading Roboflow models
+import supervision as sv
+import cv2
 import numpy as np
 from sklearn.cluster import KMeans
 
 def extract_dominant_color(image, boxes, n_colors=1):
     dominant_colors = []
     for box in boxes:
-        # Convert the numpy array to a list and then to integers
+        #Extract single coordinates
         x1, y1, x2, y2 = map(int, box.tolist())
 
         # Extract the region of interest (ROI) from the image using the bounding box
@@ -39,21 +32,16 @@ def extract_dominant_color(image, boxes, n_colors=1):
 def assign_teams_by_dominant_color(dominant_colors):
     kmeans = KMeans(n_clusters=2, random_state=0).fit(dominant_colors)
     labels = kmeans.labels_
-    
     team_assignment_array = labels + 1
     
     return team_assignment_array
 
-# This function replaces 'seperate_teams_by_color' and uses the new dominant color extraction
+#WHICH IS USED?
 def separate_teams_by_dominant_color(image, detections):
     boxes = detections.xyxy  # Assuming this is a numpy array of shape (N, 4)
     dominant_colors = extract_dominant_color(image, boxes, n_colors=1)
     team_assignment_array = assign_teams_by_dominant_color(dominant_colors)
     return team_assignment_array
-
-
-
-
 
 
 def extract_first_frame(input_loc, output_loc):
@@ -77,8 +65,9 @@ def extract_first_frame(input_loc, output_loc):
     return first_frame_filename
 
 
-def detect_obj_initial_frame(initial_frame_path): # Function that detects objects in frame and plots their boxes
-    # define the image url to use for inference
+def detect_obj_initial_frame(initial_frame_path): 
+    """Detects objects in frame and plots their boxes"""
+    #define the image url to use for inference
     image_file = initial_frame_path
     image = cv2.imread(image_file)
 
@@ -93,7 +82,7 @@ def detect_obj_initial_frame(initial_frame_path): # Function that detects object
 
     return raw_detections, image
 
-
+#WHICH IS USED?
 def seperate_teams_by_color(image, detections):
     """
     Calculate the average RGB color inside each detection box and categorize them into two teams.
@@ -198,13 +187,11 @@ def show_annotated_image(raw_detections, image):
 
 def full_detection(input_video_location, output_initial_frame_location):
     # Note that this implementation is vulnerable to jersies of similar colors. For instance light and dark blue
-    # Plan:
     # Step 1 - 'extract_first_frame' function:
         # Input: mp4 video
         # Output: Location of first frame
 
         first_frame_filename = extract_first_frame(input_video_location, output_initial_frame_location)
-        # first_frame_path = os.path.join(output_loc, "first_frame.jpg")
 
 
     # Step 2 - 'detect_obj_initial_frame' function:
@@ -217,7 +204,7 @@ def full_detection(input_video_location, output_initial_frame_location):
         # Input: annotated_image, raw_detections.xyxy, n_colors=1
         # Output: dominant_colors
 
-        # Identifies dominant color within each box, as this is more accurate then average color that is vulnerable to shadows and light
+        # Identifies dominant color within each box, as this is more accurate than average color that is vulnerable to shadows and light
         dominant_colors = extract_dominant_color(annotated_image, raw_detections.xyxy, n_colors=1)
 
     # Step 4 - 'assign_teams_by_dominant_color' function:
@@ -229,16 +216,14 @@ def full_detection(input_video_location, output_initial_frame_location):
     # Step 5 - 'add_additional_detection_stats':
         # Input: raw_detections, annotated_image, team_assignment_array
         # Output: final_detections, annotated_image
-
         final_detections, annotated_image = add_additional_detection_stats(raw_detections, annotated_image, team_assignment_array)
         show_annotated_image(final_detections, annotated_image) # Just for troubleshooting. Don't really need to display image this early
-        
-        # print(final_detections)
+
         return raw_detections, annotated_image, final_detections
 
 
 
-
+#Only for testing
 if __name__ == '__main__':
     input_video_location = 'soccer.mp4'
     output_initial_frame_location = 'The_first_frame'                      # This is where the first frame will be saved

@@ -1,10 +1,9 @@
-
-
 import cv2
 import numpy as np
+import argparse
+import keypoint_detection
 
 def convert_bboxes(bboxes):
-    # Convert from [[100., 50., 40., 70.][150., 55., 40., 70.]]
     converted = []
     for bbox in bboxes:
         x1, y1, x2, y2 = bbox
@@ -13,13 +12,40 @@ def convert_bboxes(bboxes):
         converted.append((int(x1), int(y1), int(w), int(h)))
     return converted
 
-def full_tracking(input_video_location, final_detections):
+def init():
+    #Files needed
+    parse=argparse.ArgumentParser()
+    parse.add_argument('--weights', type=str, default='Weights_CFG/best.weights', help='weights path')
+    parse.add_argument('--cfg', type=str, default='Weights_CFG/best.cfg', help='cfg path')
+    parse.add_argument('--image', type=str, default='Images/test.jpg', help='image path')
+    parse.add_argument('--video', type=str, default='Images/soccer.mp4', help='video path')
+    parse.add_argument('--img_size', type=int, default='320', help='size of w*h')
+    opt = parse.parse_args()
+    obj = keypoint_detection.Yolov4(opt)  # constructor called and executed
+    return obj, opt
+
+def full_tracking(final_detections):
+    #Necessities
+    all_real_life_positions = []
+    timestamps = []
+    detect_keypoints = False   #Set to True to add keypoint detection as well
+
+    #Keypoint detection model
+    obj, opt = init()
+
+    #Player detection
     bboxes = final_detections.xyxy
     colors = final_detections.class_id
     player_ids = final_detections.data["class_name"]
 
-    # Load the video
-    cap = cv2.VideoCapture(input_video_location)
+    # For writing results
+    cap = cv2.VideoCapture(opt.video)
+    fps = 30 #cv2.CAP_PROP_FPS
+    width = cap.get(3)
+    height = cap.get(4)
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    output = cv2.VideoWriter("demo.avi", fourcc, fps, (int(width), int(height)))
+
     if not cap.isOpened():
         print("Error: Could not open video.")
         return
@@ -37,47 +63,74 @@ def full_tracking(input_video_location, final_detections):
         tracker.init(frame, bbox)
         trackers.append(tracker)
 
-    while True:
-        # Read a new frame
+    #Main loop for tracking
+    while cap.isOpened():
+        # Read a new frame and increase frame tracking
         ret, frame = cap.read()
-        if not ret:
-            break
+        obj.frame_nbr += 1
+        
+        if ret == True:
+            # Update bounding boxes for each tracker
+            for tracker, color, player_id in zip(trackers, colors, player_ids):
+                success, box = tracker.update(frame)
+                output.write(frame)
+                #Keypoints detection, happens only if activated
+                if detect_keypoints:
+                    #Infer keypoint model
+                    outcome, coordinate_dict = obj.Inference(image=frame, original_width=width, original_height=height)
+                    if outcome is None:
+                        #Writes frame with no detections to final video
+                        output.write(frame)
+                    else:
+                        player_coord = [i[:2] for i in final_detections.xyxy]   #Extracts x_1 and y_1 coordinate of players
+                        real_life_points = obj.myTransformation(coordinate_dict, player_coord)  #Transforms coordinates to real life coordinates
 
-        # Update and draw bounding boxes for each tracker
-        for tracker, color, player_id in zip(trackers, colors, player_ids):
-            success, box = tracker.update(frame)
+                        #For velocity and accl. calculations at end of run
+                        #Frame rate = 30 fps
+                        timestamps.append(obj.frame_nbr/30)
+                        all_real_life_positions.append(real_life_points)
 
-            # For correct colors (seperating between teams)
-            if color == 1: 
-                color = (0, 0, 255)
-            elif color == 2: # If you do not use 'elif' here, the 'else' statement WILL always be entered if not 'if' entered. Effectively overriding the 'elif'
-                color = (255, 255, 255)
-            else: # Color for referees
-                color = (0, 0, 0)
+                        #Writes results to video
+                        output.write(outcome)
 
-            if success:
-                p1 = (int(box[0]), int(box[1]))
-                p2 = (int(box[0] + box[2]), int(box[1] + box[3]))
-                cv2.rectangle(frame, p1, p2, color, 2, 1)
-                cv2.putText(frame, player_id, (p1[0], p1[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-            else:
-                # Handling tracking failure, if needed
-                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+                #Draw bounding boxes with labels for each player
+                # For correct colors (seperating between teams)
+                if color == 1: 
+                    color = (0, 0, 255)
+                elif color == 2: 
+                    color = (255, 255, 255)
+                else: # Color for referees
+                    color = (0, 0, 0)
 
-        # Display result
-        cv2.imshow("Tracking", frame)
+                if success:
+                    p1 = (int(box[0]), int(box[1]))
+                    p2 = (int(box[0] + box[2]), int(box[1] + box[3]))
+                    cv2.rectangle(frame, p1, p2, color, 2, 1)
+                    cv2.putText(frame, player_id, (p1[0], p1[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                else:
+                    # Handling tracking failure
+                    cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
 
-        # Exit if ESC pressed
-        k = cv2.waitKey(1) & 0xff
-        if k == 27 : break
+            # Display result
+            cv2.imshow("Tracking", frame)
+
+            # Exit if q pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    
+    #Prints all visible and non-visible keypoints for each frame if detected
+    if detect_keypoints:
+        obj.keypointPrint()
 
     cap.release()
     cv2.destroyAllWindows()
 
+    #Returns for use in velocity and accl. calculation
+    return all_real_life_positions, timestamps
 
 
+#Only for testing
 if __name__ == '__main__':
-    # Example usage
     """
     video_path = 'soccer.mp4'
 

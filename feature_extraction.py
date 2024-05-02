@@ -1,11 +1,7 @@
-
-
-
 import cv2
 import numpy as np
 
 def initialize_feature_detector():
-    # Using SIFT as it's generally more available in non-commercial applications
     return cv2.SIFT_create()
 
 def feature_extractor(frame, final_detections):
@@ -13,8 +9,8 @@ def feature_extractor(frame, final_detections):
     detector = initialize_feature_detector()
     features = []
     
-    # Assuming player identifiers or indexes are needed, if available in final_detections
-    player_ids = range(len(bboxes))  # Generic player_ids, replace with actual IDs if available
+    # Create player ids
+    player_ids = range(len(bboxes)) 
     
     for bbox, player_id in zip(bboxes, player_ids):
         x1, y1, x2, y2 = [int(v) for v in bbox]
@@ -33,12 +29,9 @@ def feature_extractor(frame, final_detections):
 
     return features
 
-# Usage of the function in a broader context, e.g., within a video processing loop
-# Assuming `frame` is a frame obtained from cv2.VideoCapture or similar
-
+#Only for testing
 if __name__ == '__main__':
 
-    # For testing:
     frame = cv2.imread('The_first_frame/first_frame.jpg')
     # Initializing a final_detections that has xyxy attribute of correct structure
     class FinalDetections:
