@@ -28,7 +28,7 @@ def full_tracking(final_detections):
     #Necessities
     all_real_life_positions = []
     timestamps = []
-    detect_keypoints = False   #Set to True to add keypoint detection as well
+    detect_keypoints = True   #Set to True to add keypoint detection as well
 
     #Keypoint detection model
     obj, opt = init()
@@ -73,25 +73,6 @@ def full_tracking(final_detections):
             # Update bounding boxes for each tracker
             for tracker, color, player_id in zip(trackers, colors, player_ids):
                 success, box = tracker.update(frame)
-                output.write(frame)
-                #Keypoints detection, happens only if activated
-                if detect_keypoints:
-                    #Infer keypoint model
-                    outcome, coordinate_dict = obj.Inference(image=frame, original_width=width, original_height=height)
-                    if outcome is None:
-                        #Writes frame with no detections to final video
-                        output.write(frame)
-                    else:
-                        player_coord = [i[:2] for i in final_detections.xyxy]   #Extracts x_1 and y_1 coordinate of players
-                        real_life_points = obj.myTransformation(coordinate_dict, player_coord)  #Transforms coordinates to real life coordinates
-
-                        #For velocity and accl. calculations at end of run
-                        #Frame rate = 30 fps
-                        timestamps.append(obj.frame_nbr/30)
-                        all_real_life_positions.append(real_life_points)
-
-                        #Writes results to video
-                        output.write(outcome)
 
                 #Draw bounding boxes with labels for each player
                 # For correct colors (seperating between teams)
@@ -110,6 +91,23 @@ def full_tracking(final_detections):
                 else:
                     # Handling tracking failure
                     cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+
+            #Keypoint detection (if activated)
+            if detect_keypoints:
+                #Infer keypoint model
+                outcome, coordinate_dict = obj.Inference(image=frame, original_width=width, original_height=height)
+                if outcome is None:
+                    #Writes frame with no detections to final video
+                    output.write(frame)
+                else:
+                    player_coord = [i[:2] for i in final_detections.xyxy]   #Extracts x_1 and y_1 coordinate of players
+                    real_life_points = obj.myTransformation(coordinate_dict, player_coord)  #Transforms coordinates to real life coordinates
+                    #For velocity and accl. calculations at end of run
+                    #Frame rate = 30 fps
+                    timestamps.append(obj.frame_nbr/30)
+                    all_real_life_positions.append(real_life_points)
+                    #Writes results to video
+                    output.write(outcome)
 
             # Display result
             cv2.imshow("Tracking", frame)

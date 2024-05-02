@@ -115,7 +115,7 @@ def seperate_teams_by_color(image, detections):
     return team_assignment_array
 
 
-def add_additional_detection_stats(raw_detections, image, team_assignment_array):
+def add_additional_detection_stats(raw_detections, team_assignment_array):
     """
     These are the detections:  
 Detections(xyxy=array([[ 440.,  531.,  471.,  596.],
@@ -166,7 +166,7 @@ Detections(xyxy=array([[ 440.,  531.,  471.,  596.],
             player_team_two += 1      
 
     final_detections = raw_detections
-    return final_detections, image
+    return final_detections
 
 
 def show_annotated_image(raw_detections, image):
@@ -214,10 +214,10 @@ def full_detection(input_video_location, output_initial_frame_location):
     # Step 5 - 'add_additional_detection_stats':
         # Input: raw_detections, annotated_image, team_assignment_array
         # Output: final_detections, annotated_image
-        final_detections, annotated_image = add_additional_detection_stats(raw_detections, annotated_image, team_assignment_array)
-        show_annotated_image(final_detections, annotated_image) # Just for troubleshooting. Don't really need to display image this early
+        final_detections = add_additional_detection_stats(raw_detections, team_assignment_array)
+        #show_annotated_image(final_detections, annotated_image) # Just for troubleshooting. Don't really need to display image this early
 
-        return raw_detections, annotated_image, final_detections
+        return final_detections
 
 
 
